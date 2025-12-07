@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Green Direct — Farmer to Consumer Vegetables</title>
+  <style>
+    :root{--green:#2f9e44;--muted:#6b7280;--card:#f8fafc}
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; margin:0; background:#f3f4f6; color:#111}
+    header{background:linear-gradient(90deg,#ecfccb,#bbf7d0); padding:16px 20px; display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:46px;height:46px;border-radius:10px;background:var(--green);display:flex;align-items:center;justify-content:center;color:white;font-weight:700}
+    h1{margin:0;font-size:18px}
+    .role-switch{display:flex;gap:8px}
+    main{display:grid;grid-template-columns:1fr 360px;gap:18px;padding:18px;max-width:1200px;margin:18px auto}
+    .card{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+    .catalog{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+    .product{background:white;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}
+    .product img{height:140px;object-fit:cover;border-radius:8px}
+    .product h3{margin:0;font-size:16px}
+    .muted{color:var(--muted);font-size:13px}
+    .price{font-weight:700;color:var(--green)}
+    button{background:var(--green);color:white;border:0;padding:8px 10px;border-radius:8px;cursor:pointer}
+    input,select,textarea{padding:8px;border-radius:8px;border:1px solid #e6e7ea;width:100%}
+    form{display:grid;gap:8px}
+    .small{font-size:13px}
+    .controls{display:flex;gap:8px;align-items:center}
+    .cart-list{display:flex;flex-direction:column;gap:8px}
+    .cart-item{display:flex;gap:8px;align-items:center}
+    .qty{width:60px}
+    footer{text-align:center;padding:22px;color:var(--muted)}
+    @media (max-width:900px){main{grid-template-columns:1fr; padding:12px} .logo{display:none}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo">G</div>
+      <div>
+        <h1>Green Direct</h1>
+        <div class="muted small">Farmers → Consumers — Fresh Indian Vegetables</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="role-switch card" style="display:flex;gap:8px;padding:8px">
+        <label><input type="radio" name="role" value="consumer" checked> Consumer</label>
+        <label><input type="radio" name="role" value="farmer"> Farmer</label>
+      </div>
+      <button id="viewOrdersBtn">My Orders</button>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="card" id="hero">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div>
+            <h2 style="margin:0">Fresh vegetables direct from Indian farms</h2>
+            <div class="muted small">Buy seasonal, organic, and locally-grown produce — support farmers, cut the middleman.</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <input id="search" placeholder="Search vegetables, e.g. tomato" />
+            <select id="filterOrganic"><option value="all">All</option><option value="organic">Only Organic</option></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3 style="margin:0 0 8px 0">Catalog</h3>
+        <div id="catalog" class="catalog"></div>
+        <div id="emptyCatalog" class="muted small" style="display:none;padding:12px">No products yet. Farmers can add products when switched to Farmer role.</div>
+      </div>
+    </section>
+
+    <aside>
+      <div class="card" id="farmerPanel" style="display:none">
+        <h3>Farmer — Add Product</h3>
+        <form id="addProductForm">
+          <input id="pname" placeholder="Vegetable name (e.g. Tomato)" required />
+          <input id="pprice" placeholder="Price per kg (INR)" type="number" min="1" required />
+          <input id="pqty" placeholder="Available quantity (kg)" type="number" min="1" required />
+          <input id="pimg" placeholder="Image URL (optional)" />
+          <label><input type="checkbox" id="porganic"> Organic</label>
+          <button type="submit">Add / Update Product</button>
+        </form>
+        <hr />
+        <h4 style="margin:6px 0">My Listings</h4>
+        <div id="farmerListings" style="display:grid;gap:8px"></div>
+      </div>
+
+      <div class="card" id="consumerPanel">
+        <h3>Cart</h3>
+        <div id="cart" class="cart-list"><div class="muted small">Cart is empty</div></div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button id="checkoutBtn">Checkout</button>
+          <button id="clearCartBtn" style="background:#e11d48">Clear</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer>
+    Built as a single-file demo. Save as <strong>green-direct.html</strong> and open in your browser. Data persists in browser localStorage.
+  </footer>
+
+  <script>
+    const LS_PRODUCTS = 'gd_products_v1';
+    const LS_ORDERS = 'gd_orders_v1';
+
+    const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+    const el = id => document.getElementById(id);
+
+    function seedDemo(){
+      if(!localStorage.getItem(LS_PRODUCTS)){
+        const demo = [
+          {id:uid(),name:'Tomato',price:40,qty:120,img:'https://upload.wikimedia.org/wikipedia/commons/8/89/Tomato_je.jpg',organic:false,farmer:'Farmer Ram'},
+          {id:uid(),name:'Methi',price:30,qty:60,img:'https://www.chefheidifink.com/wp-content/uploads-old/2011/08/DSC07830.jpg',organic:true,farmer:'Farmer Sita'},
+          {id:uid(),name:'Brinjal',price:50,qty:40,img:'https://upload.wikimedia.org/wikipedia/commons/7/76/Solanum_melongena_24_08_2012_%281%29.JPG',organic:false,farmer:'Farmer Ram'}
+        ];
+        localStorage.setItem(LS_PRODUCTS, JSON.stringify(demo));
+      }
+    }
+
+    seedDemo();
+
+    let products = JSON.parse(localStorage.getItem(LS_PRODUCTS) || '[]');
+    let orders = JSON.parse(localStorage.getItem(LS_ORDERS) || '[]');
+    let cart = [];
+
+    const catalog = el('catalog');
+    const emptyCatalog = el('emptyCatalog');
+    const farmerPanel = el('farmerPanel');
+    const consumerPanel = el('consumerPanel');
+    const farmerListings = el('farmerListings');
+
+    function getRole(){ return document.querySelector('input[name="role"]:checked').value }
+    function renderRole(){
+      if(getRole() === 'farmer'){ farmerPanel.style.display='block'; consumerPanel.style.display='none' }
+      else{ farmerPanel.style.display='none'; consumerPanel.style.display='block' }
+    }
+    document.querySelectorAll('input[name="role"]').forEach(i=>i.addEventListener('change',()=>{ renderRole(); renderCatalog(); renderFarmerListings(); }))
+
+    function renderCatalog(){
+      const q = el('search').value.trim().toLowerCase();
+      const f = el('filterOrganic').value;
+      const role = getRole();
+      catalog.innerHTML='';
+      let list = products.filter(p=> (p.name.toLowerCase().includes(q) || p.farmer?.toLowerCase().includes(q)));
+      if(f==='organic') list = list.filter(p=>p.organic);
+      if(list.length===0){ emptyCatalog.style.display='block'; return } else emptyCatalog.style.display='none';
+      for(const p of list){
+        const card = document.createElement('div'); card.className='product';
+        const img = document.createElement('img'); img.src = p.img || 'https://via.placeholder.com/400x300?text=Vegetable';
+        const h = document.createElement('h3'); h.textContent = p.name;
+        const by = document.createElement('div'); by.className='muted small'; by.textContent = 'From: ' + (p.farmer||'Unknown');
+        const price = document.createElement('div'); price.innerHTML = `<span class="price">₹${p.price}/kg</span> • <span class="muted">${p.qty} kg available</span>`;
+        const actions = document.createElement('div'); actions.className='controls';
+
+        if(role==='consumer'){
+          const qty = document.createElement('input'); qty.type='number'; qty.min=1; qty.value=1; qty.className='qty';
+          const add = document.createElement('button'); add.textContent='Add to cart';
+          add.onclick = ()=>{ addToCart(p.id, Number(qty.value)); }
+          actions.append(qty, add);
+        } else {
+          const edit = document.createElement('button'); edit.textContent='Edit'; edit.onclick = ()=>{ populateEdit(p.id) };
+          actions.append(edit);
+        }
+
+        card.append(img,h,by,price,actions);
+        catalog.appendChild(card);
+      }
+    }
+
+    function renderFarmerListings(){
+      farmerListings.innerHTML='';
+      const my = products;
+      if(my.length===0){ farmerListings.innerHTML='<div class="muted small">You have no listings.</div>'; return }
+      for(const p of my){
+        const d = document.createElement('div'); d.style.display='flex'; d.style.justifyContent='space-between'; d.style.alignItems='center';
+        d.innerHTML = `<div><strong>${p.name}</strong> <div class="muted small">₹${p.price}/kg • ${p.qty}kg • ${p.organic? 'Organic':''}</div></div>`;
+        const actions = document.createElement('div'); actions.style.display='flex'; actions.style.gap='6px';
+        const edit = document.createElement('button'); edit.textContent='Edit'; edit.onclick = ()=> populateEdit(p.id);
+        const del = document.createElement('button'); del.textContent='Delete'; del.style.background='#ef4444'; del.onclick=()=> { if(confirm('Delete this product?')){ products = products.filter(x=>x.id!==p.id); saveProducts(); renderCatalog(); renderFarmerListings(); } };
+        actions.append(edit,del); d.appendChild(actions); farmerListings.appendChild(d);
+      }
+    }
+
+    const addForm = el('addProductForm');
+    addForm.addEventListener('submit', e=>{
+      e.preventDefault();
+      const name = el('pname').value.trim();
+      const price = Number(el('pprice').value);
+      const qty = Number(el('pqty').value);
+      const img = el('pimg').value.trim();
+      const org = el('porganic').checked;
+      const editingId = addForm.dataset.editing;
+      if(editingId){
+        const p = products.find(x=>x.id===editingId);
+        if(p){ Object.assign(p,{name,price,qty,img,organic:org}); delete addForm.dataset.editing; addForm.querySelector('button').textContent='Add / Update Product'; }
+      } else {
+        products.push({id:uid(),name,price,qty,img,organic:org,farmer:'Farmer (demo)'});
+      }
+      saveProducts(); addForm.reset(); renderCatalog(); renderFarmerListings();
+    })
+
+    function populateEdit(id){
+      const p = products.find(x=>x.id===id); if(!p) return;
+      el('pname').value = p.name; el('pprice').value = p.price; el('pqty').value = p.qty; el('pimg').value = p.img||''; el('porganic').checked = p.organic || false;
+      addForm.dataset.editing = id; addForm.querySelector('button').textContent='Save changes';
+      document.querySelector('input[name="role"][value="farmer"]').checked = true; renderRole();
+    }
+
+    function saveProducts(){ localStorage.setItem(LS_PRODUCTS, JSON.stringify(products)); }
+
+    function addToCart(productId, qty){
+      const p = products.find(x=>x.id===productId); if(!p){ alert('Product not found'); return }
+      if(qty < 1) return; if(qty > p.qty){ alert('Not enough stock'); return }
+      const existing = cart.find(c=>c.id===productId);
+      if(existing) existing.qty += qty; else cart.push({id:productId,qty, name:p.name,price:p.price});
+      renderCart();
+    }
+
+    function renderCart(){
+      const c = el('cart'); c.innerHTML=''; if(cart.length===0){ c.innerHTML='<div class="muted small">Cart is empty</div>'; return }
+      let total = 0;
+      for(const item of cart){
+        const row = document.createElement('div'); row.className='cart-item';
+        const p = products.find(x=>x.id===item.id);
+        const title = document.createElement('div'); title.innerHTML = `<strong>${item.name}</strong><div class="muted small">₹${p.price}/kg</div>`;
+        const qty = document.createElement('input'); qty.type='number'; qty.min=1; qty.value=item.qty; qty.className='qty'; qty.onchange = ()=>{ item.qty = Number(qty.value); renderCart(); }
+        const sub = document.createElement('div'); sub.textContent = '₹' + (item.qty * p.price);
+        const rem = document.createElement('button'); rem.textContent='Remove'; rem.style.background='#ef4444'; rem.onclick = ()=>{ cart = cart.filter(x=>x.id!==item.id); renderCart(); }
+        row.append(title, qty, sub, rem);
+        c.appendChild(row);
+        total += item.qty * p.price;
+      }
+      const totalRow = document.createElement('div'); totalRow.style.display='flex'; totalRow.style.justifyContent='space-between'; totalRow.style.alignItems='center'; totalRow.style.marginTop='8px';
+      totalRow.innerHTML = `<div><strong>Total</strong></div><div><strong>₹${total}</strong></div>`;
+      c.appendChild(totalRow);
+    }
+
+    el('checkoutBtn').addEventListener('click', ()=>{
+      if(cart.length===0){ alert('Cart empty'); return }
+      const order = { id: uid(), items: JSON.parse(JSON.stringify(cart)), total: cart.reduce((s,i)=>s + i.qty * (products.find(p=>p.id===i.id).price),0), date: new Date().toISOString(), status:'Placed', customer:'Consumer (demo)'};
+      for(const it of cart){ const p = products.find(x=>x.id===it.id); if(p) p.qty -= it.qty; }
+      orders.push(order); localStorage.setItem(LS_ORDERS, JSON.stringify(orders)); saveProducts(); cart = []; renderCart(); renderCatalog(); alert('Order placed — Order ID: ' + order.id);
+    })
+
+    el('clearCartBtn').addEventListener('click', ()=>{ cart = []; renderCart(); })
+
+    el('viewOrdersBtn').addEventListener('click', ()=>{
+      const role = getRole();
+      const who = role==='farmer' ? 'Farmer view' : 'Consumer view';
+      if(orders.length===0) return alert('No orders yet');
+      let html = 'Orders:\n\n';
+      for(const o of orders){
+        html += `Order ${o.id} • ₹${o.total} • ${new Date(o.date).toLocaleString()} • ${o.status}\n`;
+        for(const it of o.items) html += ` - ${it.name} x ${it.qty}\n`;
+        html += '\n';
+      }
+      alert(html);
+    })
+
+    el('search').addEventListener('input', renderCatalog);
+    el('filterOrganic').addEventListener('change', renderCatalog);
+
+    function saveAll(){ localStorage.setItem(LS_PRODUCTS, JSON.stringify(products)); localStorage.setItem(LS_ORDERS, JSON.stringify(orders)); }
+    function bootstrap(){ products = JSON.parse(localStorage.getItem(LS_PRODUCTS) || '[]'); orders = JSON.parse(localStorage.getItem(LS_ORDERS) || '[]'); renderRole(); renderCatalog(); renderFarmerListings(); renderCart(); }
+    bootstrap();
+
+    window._gd = {products,orders,cart,saveAll}
+  </script>
+</body>
+</html>
